@@ -26,11 +26,10 @@ class Zombie:
         self.IDLE = 0
         self.DEATH = 1
 
-        self.IDLE_SPRITE = ZOMBIE_IDLE_IMG
-        self.DEATH_SPRITE = ZOMBIE_DEATH_IMG
+        self.IDLE_SPRITE = pygame.image.load(ZOMBIE_IDLE_IMG)
+        self.DEATH_SPRITE = pygame.image.load(ZOMBIE_DEATH_IMG)
 
         self.anim_frame = 0
-        self.sprite = self._animate()
         self.sprite_rect = pygame.Rect(0, 0, 256, 256)
 
         self.status = self.IDLE
@@ -45,12 +44,15 @@ class Zombie:
         else:
             self.anim_frame = (self.anim_frame + 1) % 8
 
+    def on_event(self, event):
+        pass
+
     def _animate():
         new_cords = self.anim_frame * 256
         self.sprite_rect = pygame.Rect(256 + self.anim_frame, 256 + self.anim_frame, 256, 256)
         pass
  
-class App(cevent.CEvent):
+class App():
     def __init__(self):
         self._display_surf = None
         self._alive_zombies = []
@@ -68,8 +70,7 @@ class App(cevent.CEvent):
         retval = []
         for i in range(3):
             for j in range(3):
-                retval.append((300 + i * 100, 100 + j * 100))
-        
+                retval.append((300 + i * 256, 100 + j * 256))
         return retval
 
     def get_random_spawn_location(self):
@@ -103,6 +104,13 @@ class App(cevent.CEvent):
     def on_render(self):
         for zombie in self._alive_zombies:
             self._display_surf.blit(zombie.SPRITE, zombie.position)
+
+    def on_event(self, event):
+        if event.type == pygame.QUIT:
+            self._running = False
+
+        for zombie in self._alive_zombies:
+            zombie.on_event(event)
 
     def on_cleanup(self):
         pygame.quit()
