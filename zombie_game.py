@@ -25,7 +25,9 @@ class HitParticles:
     def __init__(self, position):
         self._position = position
         self._star_beam = random.randrange(0, 4)
-        self._curr_frame = 0
+        self._anim_frame = 0
+        self._init_anim_timer = 0.020333
+        self._anim_timer = self._init_anim_timer 
 
         beam_0_deg = math.radians(random.randrange(45, 68))
         beam_1_deg = math.radians(random.randrange(68, 80))
@@ -42,6 +44,7 @@ class HitParticles:
         self._beam_2 = [self.get_init_pos(self._beam_2_vel, self._position[1])]
         self._beam_3 = [self.get_init_pos(self._beam_3_vel, self._position[1])]
 
+
     def get_init_pos(self, vel, min_height):
         retval = (self._position[0] + 32, self._position[1] + 32)
         while retval[1] > min_height:
@@ -52,20 +55,49 @@ class HitParticles:
         return retval
 
     def on_loop(self, frametime):
-        beam_0_last_pos = self._beam_0[self._curr_frame]
-        beam_1_last_pos = self._beam_1[self._curr_frame]
-        beam_2_last_pos = self._beam_2[self._curr_frame]
-        beam_3_last_pos = self._beam_3[self._curr_frame]
+        if self._anim_timer > 0:
+            self._anim_timer = self._anim_timer - frametime
+            return
 
-        beam_0_next_pos = (beam_0_last_pos[0] + self._beam_0_vel[0], beam_0_last_pos[1] + self._beam_1_vel[1])
+        self._beam_0_vel = (self._beam_0_vel[0], self._beam_0_vel[1] + 0.1)
+        self._beam_1_vel = (self._beam_1_vel[0], self._beam_1_vel[1] + 0.1)
+        self._beam_2_vel = (self._beam_2_vel[0], self._beam_2_vel[1] + 0.1)
+        self._beam_3_vel = (self._beam_3_vel[0], self._beam_3_vel[1] + 0.1)
+
+        beam_0_last_pos = self._beam_0[self._anim_frame]
+        beam_1_last_pos = self._beam_1[self._anim_frame]
+        beam_2_last_pos = self._beam_2[self._anim_frame]
+        beam_3_last_pos = self._beam_3[self._anim_frame]
+
+        beam_0_next_pos = (math.floor(beam_0_last_pos[0] + self._beam_0_vel[0]), math.floor(beam_0_last_pos[1] + self._beam_0_vel[1]))
+        beam_1_next_pos = (math.floor(beam_1_last_pos[0] + self._beam_1_vel[0]), math.floor(beam_1_last_pos[1] + self._beam_1_vel[1]))
+        beam_2_next_pos = (math.floor(beam_2_last_pos[0] + self._beam_2_vel[0]), math.floor(beam_2_last_pos[1] + self._beam_2_vel[1]))
+        beam_3_next_pos = (math.floor(beam_3_last_pos[0] + self._beam_3_vel[0]), math.floor(beam_3_last_pos[1] + self._beam_3_vel[1]))
 
         self._beam_0.append(beam_0_next_pos)
+        self._beam_1.append(beam_1_next_pos)
+        self._beam_2.append(beam_2_next_pos)
+        self._beam_3.append(beam_3_next_pos)
 
+        if len(self._beam_0) >= 64:
+            self._beam_0.pop(0)
+            self._beam_1.pop(0)
+            self._beam_2.pop(0)
+            self._beam_3.pop(0)
+        else:
+            self._anim_frame = self._anim_frame + 1
 
-        pass
+        self._anim_timer = self._init_anim_timer
 
     def on_render(self, display_surf):
-        pass
+        for dot in self._beam_0:
+            display_surf.set_at(dot, (255, 0, 0))
+        for dot in self._beam_1:
+            display_surf.set_at(dot, (255, 0, 0))
+        for dot in self._beam_2:
+            display_surf.set_at(dot, (255, 0, 0))
+        for dot in self._beam_3:
+            display_surf.set_at(dot, (255, 0, 0))
 
 class Zombie:
     def __init__(self, position):
@@ -82,8 +114,8 @@ class Zombie:
         self._alive_time = 5
 
         self._anim_frame = 0
-        self._default_anim_timer = 0.0833 #12 fps
-        self._anim_timer = self._default_anim_timer 
+        self._init_anim_timer = 0.0833 #12 fps
+        self._anim_timer = self._init_anim_timer 
         self._sprite_rect = pygame.Rect(0, 0, 64, 64)
 
         self._is_bonkable = False
@@ -100,7 +132,7 @@ class Zombie:
         if self._anim_timer <= 0:
             new_cords = self._anim_frame * 64
             self._sprite_rect = pygame.Rect(new_cords, 0, 64, 64)
-            self._anim_timer = self._default_anim_timer
+            self._anim_timer = self._init_anim_timer
             self._anim_frame = (self._anim_frame + 1) % 8
 
     def on_loop(self, frametime):
@@ -114,6 +146,9 @@ class Zombie:
         self._alive_time = self._alive_time - frametime
         if self._alive_time <= 0:
             self.status = self.HIDE
+
+        if self.hit_particles:
+            self.hit_particles.on_loop(frametime)
 
     def on_render(self, display_surf):
         if self.status == self.SPAWN:
