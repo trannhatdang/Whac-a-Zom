@@ -4,20 +4,53 @@ import os
 import random
 from pygame.locals import *
 
-ZOMBIE_PATH = os.path.join('data', 'zombie')
-ZOMBIE_SPAWN_IMG = os.path.join(ZOMBIE_PATH, 'zombie_spawn.png')
-ZOMBIE_IDLE_IMG = os.path.join(ZOMBIE_PATH, 'zombie_idle.png')
-ZOMBIE_DEATH_IMG = os.path.join(ZOMBIE_PATH, 'zombie_death.png')
-ZOMBIE_HIDE_IMG = os.path.join(ZOMBIE_PATH, 'zombie_hide.png')
-BACKGROUND_IMG = os.path.join('data', 'background.png')
+ZOMBIE_PATH = os.path.join("data", "zombie")
+ZOMBIE_SPAWN_IMG = os.path.join(ZOMBIE_PATH, "zombie_spawn.png")
+ZOMBIE_IDLE_IMG = os.path.join(ZOMBIE_PATH, "zombie_idle.png")
+ZOMBIE_DEATH_IMG = os.path.join(ZOMBIE_PATH, "zombie_death.png")
+ZOMBIE_HIDE_IMG = os.path.join(ZOMBIE_PATH, "zombie_hide.png")
+HAMMER_IMG = os.path.join("data", "hammer.png")
+BACKGROUND_IMG = os.path.join("data", "background.png")
 SPAWN_TIME = 1
 SPAWN_LOCATIONS = [(310, 120), (760, 120), (1210, 120),
                    (310, 390), (760, 390), (1210, 390),
                    (310, 660), (760, 660), (1210, 660)]
+COLLIDER_EVENT = pygame.event.custom_type()
 
 class Hammer:
-    def __init__(self, position):
-        pass
+    def __init__(self):
+        self._position = position
+        self._sprite = pygame.image.load(HAMMER_IMG)
+
+        self._anim_frame = 0
+        self._default_anim_timer = 0.02083333
+        self._anim_timer = self._default_anim_timer
+        self._sprite_rect = pygame.Rect(0, 0, 64, 64)
+
+        self.should_be_destroyed = False
+
+    def _animate(self, frametime):
+        self._anim_timer = self._anim_timer - frametime
+        if self._anim_timer <= 0 and self._anim_frame < 7:
+            new_cords = self._anim_frame * 64
+            self._sprite_rect = pygame.Rect(new_cords, 0, 64, 64)
+            self._anim_timer = self._default_anim_timer
+            self._anim_frame = self._anim_frame + 1
+
+    def on_render(self, display_surf):
+        display_surf.blit(self._sprite, self._position, self._sprite_rect)
+
+    def on_loop(self, frametime):
+        if self._anim_frame >= 7:
+            self.should_be_destroyed = True
+
+            event = pygame.event.Event
+            event.type = COLLIDER_EVENT
+            event.__dict__["data1"] = self._position
+
+            pygame.event.post(event)
+        else:
+            self._anim_frame = self._anim_frame + 1
 
 class Zombie:
     def __init__(self, position):
@@ -84,6 +117,7 @@ class App():
     def __init__(self):
         self._display_surf = None
         self._alive_zombies = []
+        self._hammer = Hammer()
 
         self._free_spawn_locations = SPAWN_LOCATIONS
         self._occupied_spawn_locations = []
