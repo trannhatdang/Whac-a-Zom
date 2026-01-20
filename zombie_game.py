@@ -4,24 +4,21 @@ import os
 import random
 from pygame.locals import *
 
-ZOMBIE_IDLE_IMG = os.path.join('data', 'zombie', 'zombie_idle.png')
-ZOMBIE_DEATH_IMG = os.path.join('data', 'zombie', 'zombie_death.png')
+ZOMBIE_PATH = os.path.join('data', 'zombie')
+ZOMBIE_SPAWN_IMG = os.path.join(ZOMBIE_PATH, 'zombie_spawn.png')
+ZOMBIE_IDLE_IMG = os.path.join(ZOMBIE_PATH, 'zombie_idle.png')
+ZOMBIE_DEATH_IMG = os.path.join(ZOMBIE_PATH, 'zombie_death.png')
 BACKGROUND_IMG = os.path.join('data', 'background.png')
 SPAWN_TIME = 1
-SPAWN_LOCATIONS = [(300, 140)]
-
-'''
-class SpawnLocation:
-    def __init__(self, position):
-        self._position = position
-        self.is_occupied = False
-'''
+SPAWN_LOCATIONS = [(320, 120), (300, 500)]
 
 class Zombie:
     def __init__(self, position):
-        self.IDLE = 0
-        self.DEATH = 1
+        self.SPAWN = 0
+        self.IDLE = 1
+        self.DEATH = 2
 
+        self.SPAWN_SPRITE = pygame.image.load(ZOMBIE_SPAWN_IMG)
         self.IDLE_SPRITE = pygame.image.load(ZOMBIE_IDLE_IMG)
         self.DEATH_SPRITE = pygame.image.load(ZOMBIE_DEATH_IMG)
 
@@ -29,30 +26,36 @@ class Zombie:
         self._alive_time = 1
 
         self._anim_frame = 0
+        self._anim_timer = 0.5 #2 fps
         self._sprite_rect = pygame.Rect(0, 0, 64, 64)
 
-        self._status = self.IDLE
+        self._status = self.SPAWN
 
         self.should_be_destroyed = False
         self.box_collider = (10, 10)
         pass
 
-    def _animate(self):
-        new_cords = self._anim_frame * 64
-        self._sprite_rect = pygame.Rect(64 * self._anim_frame, 0, 64, 64)
-        pass
+    def _animate(self, frametime):
+        self._anim_timer = self._anim_timer - frametime
+        if self._anim_timer <= 0:
+            new_cords = self._anim_frame * 64
+            self._sprite_rect = pygame.Rect(new_cords, 0, 64, 64)
+            self._anim_timer = 0.5
+            self._anim_frame = (self._anim_frame + 1) % 8
 
     def on_loop(self, frametime):
-        self._animate()
-        if self._status == self.DEATH and self.anim_frame >= 8:
+        self._animate(frametime)
+        if self._status == self.DEATH and self._anim_frame >= 7:
             self.should_be_destroyed = True
-        else:
-            self._anim_frame = (self._anim_frame + 1) % 8
+        elif self._status == self.SPAWN and self._anim_frame >= 7:
+            self._status = self.IDLE
 
         self._alive_time = self._alive_time - frametime
 
     def on_render(self, display_surf):
-        if self._status == self.IDLE:
+        if self._status == self.SPAWN:
+            display_surf.blit(self.SPAWN_SPRITE, self._position, self._sprite_rect)
+        elif self._status == self.IDLE:
             display_surf.blit(self.IDLE_SPRITE, self._position, self._sprite_rect)
         else:
             display_surf.blit(self.DEATH_SPRITE, self._position, self._sprite_rect)
