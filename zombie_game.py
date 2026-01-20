@@ -8,7 +8,7 @@ ZOMBIE_IDLE_IMG = os.path.join('data', 'zombie', 'zombie_idle.png')
 ZOMBIE_DEATH_IMG = os.path.join('data', 'zombie', 'zombie_death.png')
 BACKGROUND_IMG = os.path.join('data', 'background.png')
 SPAWN_TIME = 1
-SPAWN_LOCATIONS = [(100, 100), (100, 50)]
+SPAWN_LOCATIONS = [(300, 140)]
 
 '''
 class SpawnLocation:
@@ -19,36 +19,45 @@ class SpawnLocation:
 
 class Zombie:
     def __init__(self, position):
-        self._position = position
-        self._alive_time = 1
-
         self.IDLE = 0
         self.DEATH = 1
 
         self.IDLE_SPRITE = pygame.image.load(ZOMBIE_IDLE_IMG)
         self.DEATH_SPRITE = pygame.image.load(ZOMBIE_DEATH_IMG)
 
-        self.anim_frame = 0
-        self.sprite_rect = pygame.Rect(0, 0, 256, 256)
+        self._position = position
+        self._alive_time = 1
 
-        self.status = self.IDLE
+        self._anim_frame = 0
+        self._sprite_rect = pygame.Rect(0, 0, 64, 64)
+
+        self._status = self.IDLE
+
         self.should_be_destroyed = False
         self.box_collider = (10, 10)
         pass
 
-    def on_loop(self, frametime):
-        self._animate()
-        if self.status == self.DEATH and self.anim_frame >= 8:
-            self.should_be_destroyed = True
-        else:
-            self.anim_frame = (self.anim_frame + 1) % 8
-
-    def on_event(self, event):
+    def _animate(self):
+        new_cords = self._anim_frame * 64
+        self._sprite_rect = pygame.Rect(64 * self._anim_frame, 0, 64, 64)
         pass
 
-    def _animate(self):
-        new_cords = self.anim_frame * 256
-        self.sprite_rect = pygame.Rect(256 + self.anim_frame, 256 + self.anim_frame, 256, 256)
+    def on_loop(self, frametime):
+        self._animate()
+        if self._status == self.DEATH and self.anim_frame >= 8:
+            self.should_be_destroyed = True
+        else:
+            self._anim_frame = (self._anim_frame + 1) % 8
+
+        self._alive_time = self._alive_time - frametime
+
+    def on_render(self, display_surf):
+        if self._status == self.IDLE:
+            display_surf.blit(self.IDLE_SPRITE, self._position, self._sprite_rect)
+        else:
+            display_surf.blit(self.DEATH_SPRITE, self._position, self._sprite_rect)
+
+    def on_event(self, event):
         pass
  
 class App():
@@ -56,8 +65,8 @@ class App():
         self._display_surf = None
         self._alive_zombies = []
 
-        self._free_spawn_locations = self.create_spawn_locations()
-        self._occupied_spawn_locations = SPAWN_LOCATIONS
+        self._free_spawn_locations = SPAWN_LOCATIONS
+        self._occupied_spawn_locations = []
 
         self._background_sprite = pygame.image.load(BACKGROUND_IMG)
 
@@ -75,6 +84,9 @@ class App():
         return retval
 
     def get_random_spawn_location(self):
+        if(len(self._free_spawn_locations) == 0):
+            return (-1)
+
         retval = self._free_spawn_locations[random.randrange(0, len(self._free_spawn_locations))]
 
         return retval
@@ -95,7 +107,7 @@ class App():
                 self._alive_zombies.remove(zombie)
 
         self._spawn_timer = self._spawn_timer - self._frametime
-        if self._spawn_timer <= 0:
+        if self._spawn_timer <= 0 and len(self._free_spawn_locations) > 0:
             spawn_location = self.get_random_spawn_location()
             self._occupied_spawn_locations.append(spawn_location)
             self._free_spawn_locations.remove(spawn_location)
@@ -104,9 +116,9 @@ class App():
 
     def on_render(self):
         self._display_surf.blit(self._background_sprite, self._background_sprite.get_rect())
+        for zombie in self._alive_zombies:
+            zombie.on_render(self._display_surf)
         pygame.display.flip()
-        #for zombie in self._alive_zombies:
-            #self._display_surf.blit(zombie.SPRITE, zombie.position)
 
     def on_event(self, event):
         if event.type == pygame.QUIT:
@@ -123,6 +135,7 @@ class App():
             self._running = False
  
         while( self._running ):
+            #print(len(self._free_spawn_locations))
             start_time = time.time()
 
             for event in pygame.event.get():
