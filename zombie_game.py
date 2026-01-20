@@ -36,24 +36,17 @@ class HitParticles:
         self._beam_2_init_vel = (-math.cos(beam_2_deg), -math.sin(beam_2_deg))
         self._beam_3_init_vel = (-math.cos(beam_3_deg), -math.sin(beam_3_deg))
 
-        self._beam_0 = [self.get_init_pos(self._beam_0_init_vel, 64)]
-        self._beam_1 = [self.get_init_pos(self._beam_1_init_vel, 64)]
-        self._beam_2 = [self.get_init_pos(self._beam_2_init_vel, 64)]
-        self._beam_3 = [self.get_init_pos(self._beam_3_init_vel, 64)]
-
-        print(self._beam_0)
-        print(self._beam_1)
-        print(self._beam_2)
-        print(self._beam_3)
-        pass
+        self._beam_0 = [self.get_init_pos(self._beam_0_init_vel, self._position[1])]
+        self._beam_1 = [self.get_init_pos(self._beam_1_init_vel, self._position[1])]
+        self._beam_2 = [self.get_init_pos(self._beam_2_init_vel, self._position[1])]
+        self._beam_3 = [self.get_init_pos(self._beam_3_init_vel, self._position[1])]
 
     def get_init_pos(self, vel, min_height):
-        print(vel)
-        retval = self._position
-        while retval[1] < min_height:
+        retval = (self._position[0] + 32, self._position[1] + 32)
+        while retval[1] > min_height:
             retval = (retval[0] + vel[0], retval[1] + vel[1])
 
-        #retval = (math.floor(retval[0]), math.floor(retval[1]))
+        retval = (math.floor(retval[0]), math.floor(retval[1]))
 
         return retval
 
