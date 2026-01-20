@@ -25,21 +25,22 @@ class HitParticles:
     def __init__(self, position):
         self._position = position
         self._star_beam = random.randrange(0, 4)
+        self._curr_frame = 0
 
         beam_0_deg = math.radians(random.randrange(45, 68))
         beam_1_deg = math.radians(random.randrange(68, 80))
         beam_2_deg = math.radians(random.randrange(80, 103))
         beam_3_deg = math.radians(random.randrange(103, 135))
 
-        self._beam_0_init_vel = (-math.cos(beam_0_deg), -math.sin(beam_0_deg))
-        self._beam_1_init_vel = (-math.cos(beam_1_deg), -math.sin(beam_1_deg))
-        self._beam_2_init_vel = (-math.cos(beam_2_deg), -math.sin(beam_2_deg))
-        self._beam_3_init_vel = (-math.cos(beam_3_deg), -math.sin(beam_3_deg))
+        self._beam_0_vel = (-math.cos(beam_0_deg), -math.sin(beam_0_deg))
+        self._beam_1_vel = (-math.cos(beam_1_deg), -math.sin(beam_1_deg))
+        self._beam_2_vel = (-math.cos(beam_2_deg), -math.sin(beam_2_deg))
+        self._beam_3_vel = (-math.cos(beam_3_deg), -math.sin(beam_3_deg))
 
-        self._beam_0 = [self.get_init_pos(self._beam_0_init_vel, self._position[1])]
-        self._beam_1 = [self.get_init_pos(self._beam_1_init_vel, self._position[1])]
-        self._beam_2 = [self.get_init_pos(self._beam_2_init_vel, self._position[1])]
-        self._beam_3 = [self.get_init_pos(self._beam_3_init_vel, self._position[1])]
+        self._beam_0 = [self.get_init_pos(self._beam_0_vel, self._position[1])]
+        self._beam_1 = [self.get_init_pos(self._beam_1_vel, self._position[1])]
+        self._beam_2 = [self.get_init_pos(self._beam_2_vel, self._position[1])]
+        self._beam_3 = [self.get_init_pos(self._beam_3_vel, self._position[1])]
 
     def get_init_pos(self, vel, min_height):
         retval = (self._position[0] + 32, self._position[1] + 32)
@@ -51,6 +52,16 @@ class HitParticles:
         return retval
 
     def on_loop(self, frametime):
+        beam_0_last_pos = self._beam_0[self._curr_frame]
+        beam_1_last_pos = self._beam_1[self._curr_frame]
+        beam_2_last_pos = self._beam_2[self._curr_frame]
+        beam_3_last_pos = self._beam_3[self._curr_frame]
+
+        beam_0_next_pos = (beam_0_last_pos[0] + self._beam_0_vel[0], beam_0_last_pos[1] + self._beam_1_vel[1])
+
+        self._beam_0.append(beam_0_next_pos)
+
+
         pass
 
     def on_render(self, display_surf):
