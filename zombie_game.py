@@ -26,21 +26,36 @@ class HitParticles:
         self._position = position
         self._star_beam = random.randrange(0, 4)
 
-        beam_0_deg = math.radians(random.randrange(0, 45))
-        beam_1_deg = math.radians(random.randrange(beam_0_deg, beam_0_deg + 45))
-        beam_2_deg = math.radians(random.randrange(beam_1_deg, beam_1_deg + 45))
-        beam_3_deg = math.radians(random.randrange(beam_2_deg, 180))
+        beam_0_deg = math.radians(random.randrange(45, 68))
+        beam_1_deg = math.radians(random.randrange(68, 80))
+        beam_2_deg = math.radians(random.randrange(80, 103))
+        beam_3_deg = math.radians(random.randrange(103, 135))
 
         self._beam_0_init_vel = (-math.cos(beam_0_deg), -math.sin(beam_0_deg))
         self._beam_1_init_vel = (-math.cos(beam_1_deg), -math.sin(beam_1_deg))
         self._beam_2_init_vel = (-math.cos(beam_2_deg), -math.sin(beam_2_deg))
         self._beam_3_init_vel = (-math.cos(beam_3_deg), -math.sin(beam_3_deg))
 
-        self._beam_0 = [(0, 0)]
-        self._beam_1 = [(0, 0)]
-        self._beam_2 = [(0, 0)]
-        self._beam_3 = [(0, 0)]
+        self._beam_0 = [self.get_init_pos(self._beam_0_init_vel, 64)]
+        self._beam_1 = [self.get_init_pos(self._beam_1_init_vel, 64)]
+        self._beam_2 = [self.get_init_pos(self._beam_2_init_vel, 64)]
+        self._beam_3 = [self.get_init_pos(self._beam_3_init_vel, 64)]
+
+        print(self._beam_0)
+        print(self._beam_1)
+        print(self._beam_2)
+        print(self._beam_3)
         pass
+
+    def get_init_pos(self, vel, min_height):
+        print(vel)
+        retval = self._position
+        while retval[1] < min_height:
+            retval = (retval[0] + vel[0], retval[1] + vel[1])
+
+        #retval = (math.floor(retval[0]), math.floor(retval[1]))
+
+        return retval
 
     def on_loop(self, frametime):
         pass
