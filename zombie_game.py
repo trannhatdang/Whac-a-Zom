@@ -2,6 +2,7 @@ import pygame
 import time
 import os
 import random
+import math
 import gamecursor
 from pygame.locals import *
 
@@ -19,6 +20,33 @@ SPAWN_LOCATIONS = [(310, 120), (760, 120), (1210, 120),
                    (310, 660), (760, 660), (1210, 660)]
 COLLIDER_EVENT = pygame.event.custom_type()
 DEFAULT_COLLIDER_OFFSET = (10, 10)
+
+class HitParticles:
+    def __init__(self, position):
+        self._position = position
+        self._star_beam = random.randrange(0, 4)
+
+        beam_0_deg = math.radians(random.randrange(0, 45))
+        beam_1_deg = math.radians(random.randrange(beam_0_deg, beam_0_deg + 45))
+        beam_2_deg = math.radians(random.randrange(beam_1_deg, beam_1_deg + 45))
+        beam_3_deg = math.radians(random.randrange(beam_2_deg, 180))
+
+        self._beam_0_init_vel = (-math.cos(beam_0_deg), -math.sin(beam_0_deg))
+        self._beam_1_init_vel = (-math.cos(beam_1_deg), -math.sin(beam_1_deg))
+        self._beam_2_init_vel = (-math.cos(beam_2_deg), -math.sin(beam_2_deg))
+        self._beam_3_init_vel = (-math.cos(beam_3_deg), -math.sin(beam_3_deg))
+
+        self._beam_0 = [(0, 0)]
+        self._beam_1 = [(0, 0)]
+        self._beam_2 = [(0, 0)]
+        self._beam_3 = [(0, 0)]
+        pass
+
+    def on_loop(self, frametime):
+        pass
+
+    def on_render(self, display_surf):
+        pass
 
 class Zombie:
     def __init__(self, position):
@@ -41,6 +69,8 @@ class Zombie:
 
         self._is_bonkable = False
         self._collider_offset = DEFAULT_COLLIDER_OFFSET
+
+        self.hit_particles = None
 
         self.should_be_destroyed = False
         self.status = self.SPAWN
@@ -76,6 +106,9 @@ class Zombie:
         else:
             display_surf.blit(self.DEATH_SPRITE, self.position, self._sprite_rect)
 
+        if self.hit_particles:
+            self.hit_particles.on_render(display_surf)
+
     def on_event(self, event):
         if not self.status == self.IDLE:
             return
@@ -91,13 +124,13 @@ class Zombie:
         max_width = self.position[0] + 64 + self._collider_offset[0]
         min_height = self.position[1]
         max_height = self.position[1] + 64 + self._collider_offset[1]
-        #print(mouse_x, mouse_y)
-        #print(min_width, max_width, min_height, max_height)
 
         if mouse_x >= min_width and mouse_x <= max_width and mouse_y >= min_height and mouse_y <= max_height:
             self.status = self.DEATH
             self._anim_frame = 0
             self._is_bonkable = True
+
+            self.hit_particles = HitParticles(self.position)
  
 class App():
     def __init__(self):
@@ -118,7 +151,6 @@ class App():
         self._hitrate = 0
 
         self.size = self.weight, self.height = 1584, 887
-        random.seed(time.time())
 
     def get_random_spawn_location(self):
         if(len(self._free_spawn_locations) == 0):
@@ -129,6 +161,7 @@ class App():
         return retval
 
     def on_init(self):
+        random.seed(time.time())
         pygame.init()
         pygame.font.init()
         self._font = pygame.font.Font(VCR_OSD_MONO_FONT, 32)
