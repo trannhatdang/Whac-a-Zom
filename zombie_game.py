@@ -60,6 +60,7 @@ class Zombie:
             self.should_be_destroyed = True
         elif self._status == self.SPAWN and self._anim_frame >= 7:
             self._status = self.IDLE
+            self._is_bonkable = True
 
         self._alive_time = self._alive_time - frametime
         if self._alive_time <= 0:
