@@ -3,6 +3,7 @@ import time
 import os
 import random
 import math
+import operator
 import gamecursor
 from pygame.locals import *
 
@@ -13,6 +14,7 @@ ZOMBIE_IDLE_IMG = os.path.join(ZOMBIE_PATH, "zombie_idle.png")
 ZOMBIE_DEATH_IMG = os.path.join(ZOMBIE_PATH, "zombie_death.png")
 ZOMBIE_HIDE_IMG = os.path.join(ZOMBIE_PATH, "zombie_hide.png")
 BACKGROUND_IMG = os.path.join("data", "background.png")
+STAR_IMG = os.path.join("data", "star.png")
 VCR_OSD_MONO_FONT = os.path.join(FONT_PATH, "VCR_OSD_MONO.ttf")
 SPAWN_TIME = 1
 SPAWN_LOCATIONS = [(310, 120), (760, 120), (1210, 120),
@@ -22,27 +24,28 @@ COLLIDER_EVENT = pygame.event.custom_type()
 DEFAULT_COLLIDER_OFFSET = (10, 10)
 
 class HitParticles:
-    def __init__(self, position):
+    def __init__(self, position, beam_num = 4):
         self._position = position
         self._star_beam = random.randrange(0, 4)
         self._anim_frame = 0
-        self._init_anim_timer = 0.0069444444
+        self._init_anim_timer = 0.020444
         self._anim_timer = self._init_anim_timer 
+        self._beam_num = beam_num
 
-        beam_0_deg = math.radians(random.randrange(45, 68))
-        beam_1_deg = math.radians(random.randrange(68, 80))
-        beam_2_deg = math.radians(random.randrange(80, 103))
-        beam_3_deg = math.radians(random.randrange(103, 135))
+        vel = (3, 3)
+        beam_deg_range = math.floor(90/self._beam_num)
+        beams_deg = [random.randrange(45, 45 + beam_deg_range)]
+        for i in range(1, self._beam_num):
+            beams_deg.append(random.randrange(beams_deg[i-1], beams_deg[i-1] + beam_deg_range))
 
-        self._beam_0_vel = (-math.cos(beam_0_deg), -math.sin(beam_0_deg))
-        self._beam_1_vel = (-math.cos(beam_1_deg), -math.sin(beam_1_deg))
-        self._beam_2_vel = (-math.cos(beam_2_deg), -math.sin(beam_2_deg))
-        self._beam_3_vel = (-math.cos(beam_3_deg), -math.sin(beam_3_deg))
+        self._beams_vel = []
+        for i in range(self._beam_num):
+            base_vel = (-math.cos(math.radians(beams_deg[i])), -math.sin(math.radians(beams_deg[i])))
+            self._beams_vel.append(tuple(map(operator.mul, base_vel, vel)))
 
-        self._beam_0 = [self.get_init_pos(self._beam_0_vel, self._position[1])]
-        self._beam_1 = [self.get_init_pos(self._beam_1_vel, self._position[1])]
-        self._beam_2 = [self.get_init_pos(self._beam_2_vel, self._position[1])]
-        self._beam_3 = [self.get_init_pos(self._beam_3_vel, self._position[1])]
+        self._beams = []
+        for i in range(self._beam_num):
+            self._beams.append([self.get_init_pos(self._beams_vel[i], self._position[1] + 10)])
 
     def get_init_pos(self, vel, min_height):
         retval = (self._position[0] + 32, self._position[1] + 32)
@@ -59,56 +62,42 @@ class HitParticles:
         for i in range(sz):
             for j in range(sz):
                 point = (position[0] + i, position[1] + j)
-                #print(point, mid_point)
                 dist = math.sqrt(pow(point[0] - mid_point[0], 2) + pow(point[1] - mid_point[1], 2))
 
                 if dist < sz:
                     display_surf.set_at(point, (255, 0, 0))
+    
+    def render_beam(self, display_surf, beam, sz):
+        for dot in beam:
+            sz = sz - sz/len(beam)
+            dot_int = (round(dot[0]), round(dot[1]))
+            self.render_dot(display_surf, dot_int, math.ceil(sz))
 
     def on_loop(self, frametime):
         if self._anim_timer > 0:
             self._anim_timer = self._anim_timer - frametime
             return
 
-        self._beam_0_vel = (self._beam_0_vel[0], self._beam_0_vel[1] + 0.05)
-        self._beam_1_vel = (self._beam_1_vel[0], self._beam_1_vel[1] + 0.05)
-        self._beam_2_vel = (self._beam_2_vel[0], self._beam_2_vel[1] + 0.05)
-        self._beam_3_vel = (self._beam_3_vel[0], self._beam_3_vel[1] + 0.05)
+        acc = [0, 0.08]
 
-        beam_0_last_pos = self._beam_0[self._anim_frame]
-        beam_1_last_pos = self._beam_1[self._anim_frame]
-        beam_2_last_pos = self._beam_2[self._anim_frame]
-        beam_3_last_pos = self._beam_3[self._anim_frame]
+        for i in range(self._beam_num):
+            beam = self._beams[i]
+            self._beams_vel[i] = (self._beams_vel[i][0] + acc[0], self._beams_vel[i][1] + acc[1])
 
-        beam_0_next_pos = (math.ceil(beam_0_last_pos[0] + self._beam_0_vel[0]), math.ceil(beam_0_last_pos[1] + self._beam_0_vel[1]))
-        beam_1_next_pos = (math.ceil(beam_1_last_pos[0] + self._beam_1_vel[0]), math.ceil(beam_1_last_pos[1] + self._beam_1_vel[1]))
-        beam_2_next_pos = (math.ceil(beam_2_last_pos[0] + self._beam_2_vel[0]), math.ceil(beam_2_last_pos[1] + self._beam_2_vel[1]))
-        beam_3_next_pos = (math.ceil(beam_3_last_pos[0] + self._beam_3_vel[0]), math.ceil(beam_3_last_pos[1] + self._beam_3_vel[1]))
+            beam_last_pos = beam[self._anim_frame]
+            beam_next_pos = (beam_last_pos[0] + self._beams_vel[i][0], beam_last_pos[1] + self._beams_vel[i][1])
 
-        self._beam_0.append(beam_0_next_pos)
-        self._beam_1.append(beam_1_next_pos)
-        self._beam_2.append(beam_2_next_pos)
-        self._beam_3.append(beam_3_next_pos)
+            beam.append(beam_next_pos)
 
-        if len(self._beam_0) >= 256:
-            self._beam_0.pop(0)
-            self._beam_1.pop(0)
-            self._beam_2.pop(0)
-            self._beam_3.pop(0)
-        else:
-            self._anim_frame = self._anim_frame + 1
+            if len(beam) >= 256:
+                beam.pop(0)
 
+        self._anim_frame = min(self._anim_frame + 1, 256)
         self._anim_timer = self._init_anim_timer
 
     def on_render(self, display_surf):
-        for dot in self._beam_0:
-            self.render_dot(display_surf, dot, 10)
-        for dot in self._beam_1:
-            self.render_dot(display_surf, dot, 10)
-        for dot in self._beam_2:
-            self.render_dot(display_surf, dot, 10)
-        for dot in self._beam_3:
-            self.render_dot(display_surf, dot, 10)
+        for beam in self._beams:
+            self.render_beam(display_surf, beam, 4)
 
 class Zombie:
     def __init__(self, position):
