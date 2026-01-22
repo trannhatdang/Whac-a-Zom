@@ -16,11 +16,13 @@ HIT_EFFECT_IMG = os.path.join("data", "hit_effect.png")
 BACKGROUND_IMG = os.path.join("data", "background.png")
 STAR_IMG = os.path.join("data", "star.png")
 VCR_OSD_MONO_FONT = os.path.join(FONT_PATH, "VCR_OSD_MONO.ttf")
-SPAWN_TIME = 1
+BONK_SFX = os.path.join("data", "bonk_sfx.mp3")
+DEFAULT_SPAWN_TIME = 1
+DEFAULT_ZOMBIE_ALIVE_TIME = 5
 SPAWN_LOCATIONS = [(310, 120), (760, 120), (1210, 120),
                    (310, 390), (760, 390), (1210, 390),
                    (310, 660), (760, 660), (1210, 660)]
-COLLIDER_EVENT = pygame.event.custom_type()
+ZOMBIE_HIDDEN_EVENT = pygame.event.custom_type()
 DEFAULT_COLLIDER_OFFSET = (10, 10)
 
 class GameObject:
@@ -95,7 +97,7 @@ class AnimatedObject(GameObject):
         pass
 
 class HitParticles:
-    def __init__(self, position, beam_num = 4, alive_time = 0.0833 * 4):
+    def __init__(self, position, beam_num = 4, alive_time = 0.00833):
         self._position = position
         self._star_beam = random.randrange(0, 4)
         self._anim_frame = 0
@@ -117,8 +119,6 @@ class HitParticles:
             deg = beams_deg[i]
             base_vel = (math.cos(math.radians(deg)), -math.sin(math.radians(deg)))
             self._beams_vel.append(tuple(map(operator.mul, base_vel, vel)))
-
-        print(self._beams_vel)
 
         self._beams = []
         for i in range(self._beam_num):
@@ -155,7 +155,7 @@ class HitParticles:
 
                 if dist < sz:
                     display_surf.set_at(point, (255, 0, 0))
-    
+
     def render_beam(self, display_surf, beam, sz):
         for dot in beam:
             sz = sz - sz/len(beam)
@@ -170,7 +170,7 @@ class HitParticles:
         if self._alive_timer <= 0:
             return
 
-        acc = [0, 0.08]
+        acc = [0, 0.2]
 
         for i in range(self._beam_num):
             beam = self._beams[i]
@@ -195,7 +195,7 @@ class HitParticles:
             self.render_beam(display_surf, beam, 4)
 
 class Zombie(GameObject):
-    def __init__(self, position):
+    def __init__(self, position, alive_time = 5):
         self.SPAWN = 0
         self.IDLE = 1
         self.DEATH = 2
@@ -206,7 +206,7 @@ class Zombie(GameObject):
         self.DEATH_SPRITE = pygame.image.load(ZOMBIE_DEATH_IMG)
         self.HIDE_SPRITE = pygame.image.load(ZOMBIE_HIDE_IMG)
 
-        self._alive_time = 5
+        self._alive_time = alive_time
 
         self._anim_frame = 0
         self._init_anim_timer = 0.0833 #12 fps
@@ -214,7 +214,7 @@ class Zombie(GameObject):
         self._sprite_rect = pygame.Rect(0, 0, 64, 64)
 
         self._is_bonkable = False
-        self._collider_offset = DEFAULT_COLLIDER_OFFSET
+        self.collider_offset = DEFAULT_COLLIDER_OFFSET
 
         self.hit_particles = None
 
@@ -230,7 +230,6 @@ class Zombie(GameObject):
             self._anim_frame = (self._anim_frame + 1) % 8
 
     def on_loop(self, frametime):
-
         self._animate(frametime)
         if (self.status == self.DEATH or self.status == self.HIDE) and self._anim_frame >= 7:
             self.on_destroy()
@@ -241,6 +240,8 @@ class Zombie(GameObject):
         self._alive_time = self._alive_time - frametime
         if self._alive_time <= 0:
             self.status = self.HIDE
+            zombie_hidden_event = pygame.event.EVENT(ZOMBIE_HIDDEN_EVENT)
+            pygame.event.post(zombie_hidden_event)
 
         if self.hit_particles:
             self.hit_particles.on_loop(frametime)
@@ -263,30 +264,24 @@ class Zombie(GameObject):
         super().on_render(display_surf)
 
     def on_event(self, event):
-        if not self.status == self.IDLE:
-            return
-
-        if event.type != pygame.MOUSEBUTTONDOWN:
-            return
-
-        if not self._is_bonkable:
-            return
-
-        mouse_x, mouse_y = pygame.mouse.get_pos()
-        min_width = self.position[0]
-        max_width = self.position[0] + 64 + self._collider_offset[0]
-        min_height = self.position[1]
-        max_height = self.position[1] + 64 + self._collider_offset[1]
-
-        if mouse_x >= min_width and mouse_x <= max_width and mouse_y >= min_height and mouse_y <= max_height and self._is_bonkable:
-            self.status = self.DEATH
-            self._anim_frame = 0
-            self._is_bonkable = False
-
-            self.hit_particles = HitParticles(self.position)
-            self.children_objects.append(AnimatedObject(position = tuple(map(operator.add, self.position, (0, -22))), img_path = HIT_EFFECT_IMG, framerate = 6, frame_num = 2))
-
         super().on_event(event)
+
+    def die(self):
+        if self._is_bonkable or self.status == self.DEATH:
+            return
+
+        self.status = self.DEATH
+        self._anim_frame = 0
+        self._is_bonkable = False
+
+        self.hit_particles = HitParticles(self.position)
+        self.children_objects.append(AnimatedObject(position = tuple(map(operator.add, self.position, (0, -22))), img_path = HIT_EFFECT_IMG, framerate = 6, frame_num = 2))
+        sound = pygame.mixer.Sound(BONK_SFX)
+        sound.play()
+        has_been_hit = True
+
+    def get_bonkable(self):
+        return self._is_bonkable
  
 class App():
     def __init__(self):
@@ -299,9 +294,11 @@ class App():
         self._background_sprite = pygame.image.load(BACKGROUND_IMG)
         self._font = None
 
-        self._spawn_timer = SPAWN_TIME
+        self._spawn_time = DEFAULT_SPAWN_TIME
+        self._curr_spawn_timer = self._spawn_time
         self._frametime = 0
 
+        self._streak = 0
         self._points = 0
         self._misses = 0
         self._hitrate = 0
@@ -320,6 +317,7 @@ class App():
         random.seed(time.time())
         pygame.init()
         pygame.font.init()
+        pygame.mixer.init()
         self._font = pygame.font.Font(VCR_OSD_MONO_FONT, 32)
         self._display_surf = pygame.display.set_mode(self.size, pygame.HWSURFACE | pygame.DOUBLEBUF)
         self._running = True
@@ -334,24 +332,21 @@ class App():
                 self._occupied_spawn_locations.remove(location)
                 self._alive_zombies.remove(zombie)
 
-                if zombie.status == zombie.DEATH:
-                    self._points = self._points + 1
-                else:
-                    self._misses = self._misses + 1
+                self._spawn_time = max(self._spawn_time - self._streak * 0.05, .05)
 
                 if(self._points + self._misses != 0):
                     self._hitrate = self._points / (self._points + self._misses)
                 else:
                     self._hitrate = 0
 
-        self._spawn_timer = self._spawn_timer - self._frametime
-        if self._spawn_timer <= 0 and len(self._free_spawn_locations) > 0:
+        self._curr_spawn_timer = self._curr_spawn_timer - self._frametime
+        if self._curr_spawn_timer <= 0 and len(self._free_spawn_locations) > 0:
             spawn_location = self.get_random_spawn_location()
             self._occupied_spawn_locations.append(spawn_location)
             self._free_spawn_locations.remove(spawn_location)
 
-            self._alive_zombies.append(Zombie(spawn_location))
-            self._spawn_timer = SPAWN_TIME
+            self._alive_zombies.append(Zombie(spawn_location, alive_time = max(DEFAULT_ZOMBIE_ALIVE_TIME - self._streak * 0.25, 0.25)))
+            self._curr_spawn_timer = self._spawn_time
 
     def on_render(self):
         self._display_surf.blit(self._background_sprite, self._background_sprite.get_rect())
@@ -372,8 +367,39 @@ class App():
         if event.type == pygame.QUIT:
             self._running = False
 
+        if event.type == pygame.MOUSEBUTTONDOWN
+            self.on_mouse_down(event)
+
+        if event.type == ZOMBIE_HIDDEN_EVENT:
+            self._streak = 0
+            self._misses = self._misses + 1
+            self._spawn_time = DEFAULT_SPAWN_TIME
+
         for zombie in self._alive_zombies:
             zombie.on_event(event)
+
+    def on_mouse_down(self, event):
+        has_hit = False
+        mouse_x, mouse_y = pygame.mouse.get_pos()
+
+        for zombie in self._alive_zombies:
+            min_width = zombie.position[0]
+            max_width = zombie.position[0] + 64 + zombie.collider_offset[0]
+            min_height = zombie.position[1]
+            max_height = zombie.position[1] + 64 + zombie.collider_offset[1]
+
+            if mouse_x >= min_width and mouse_x <= max_width and mouse_y >= min_height and mouse_y <= max_height and zombie.get_bonkable() and zombie.status == zombie.IDLE:
+                has_hit = True
+                zombie.die()
+                break
+
+        if has_hit:
+            self._streak = self._streak + 1
+            self._points = self._points + 1
+        else:
+            self._streak = 0
+            self._misses = self._misses + 1
+            self._spawn_time = DEFAULT_SPAWN_TIME
 
     def on_cleanup(self):
         pygame.font.quit()
