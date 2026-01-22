@@ -1,11 +1,9 @@
-
 import pygame
 import time
 import os
 import random
 import math
 import operator
-import gamecursor
 from pygame.locals import *
 
 ZOMBIE_PATH = os.path.join("data", "zombie")
@@ -61,7 +59,7 @@ class GameObject:
         pass
 
 class AnimatedObject(GameObject):
-    def __init__(self, position, img_path, frame_rate = 0.0833, frame_num):
+    def __init__(self, position, img_path, frame_rate = 0.0833, frame_num = 8):
         super().__init__(position)
         self._anim_frame = 0
         self._init_anim_timer = 0.0833
